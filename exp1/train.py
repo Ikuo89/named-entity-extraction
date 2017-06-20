@@ -1,16 +1,10 @@
-import sys
 from itertools import chain
+import pycrfsuite
 import sklearn
 from sklearn.metrics import classification_report
 from sklearn.preprocessing import LabelBinarizer
-import codecs
 
-import MeCab
-import pycrfsuite
-from pprint import pprint
-import csv
-import mojimoji
-import re
+import codecs
 
 class CorpusReader(object):
 
@@ -146,45 +140,58 @@ def sent2labels(sent):
 def sent2tokens(sent):
     return [morph[0] for morph in sent]
 
+c = CorpusReader('train.txt')
+train_sents = c.iob_sents('train')
+test_sents = c.iob_sents('test')
+
+X_train = [sent2features(s) for s in train_sents]
+y_train = [sent2labels(s) for s in train_sents]
+
+X_test = [sent2features(s) for s in test_sents]
+y_test = [sent2labels(s) for s in test_sents]
+
+trainer = pycrfsuite.Trainer(verbose=False)
+
+for xseq, yseq in zip(X_train, y_train):
+    trainer.append(xseq, yseq)
+
+trainer.set_params({
+    'c1': 1.0,   # coefficient for L1 penalty
+    'c2': 1e-3,  # coefficient for L2 penalty
+    'max_iterations': 50,  # stop earlier
+
+    # include transitions that are possible, but not observed
+    'feature.possible_transitions': True
+})
+
+trainer.train('model.crfsuite')
+
+tagger = pycrfsuite.Tagger()
+tagger.open('model.crfsuite')
+
+example_sent = test_sents[0]
+print(' '.join(sent2tokens(example_sent)))
+
+print("Predicted:", ' '.join(tagger.tag(sent2features(example_sent))))
+print("Correct:  ", ' '.join(sent2labels(example_sent)))
 
 
-m = MeCab.Tagger("-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd/")
-f = open('tweet100.csv', 'r')
-out = open('tweet_tagged.txt', 'w')
-dataReader = csv.reader(f)
-for row in dataReader:
-    text = row[0]
-    text = mojimoji.zen_to_han(text, kana=False)
-    text = mojimoji.han_to_zen(text, digit=False, ascii=False)
-    text = re.sub(r'[-~〰−―]', '〜', text)
-    text = re.sub(r'[「【『［〈《]', '[', text)
-    text = re.sub(r'[」】』］〉》]', ']', text)
-    text = re.sub(r'[（]', '(', text)
-    text = re.sub(r'[）]', ')', text)
-    text = re.sub(r'[／]', '/', text)
-    parsed = m.parse(text)
+def bio_classification_report(y_true, y_pred):
+    lb = LabelBinarizer()
+    y_true_combined = lb.fit_transform(list(chain.from_iterable(y_true)))
+    y_pred_combined = lb.transform(list(chain.from_iterable(y_pred)))
 
-    mecab_parsed = []
-    for line in parsed.split('\n'):
-        line_array = line.split('\t')
-        if len(line_array) < 2:
-            break
+    tagset = set(lb.classes_) - {'O'}
+    tagset = sorted(tagset, key=lambda tag: tag.split('-', 1)[::-1])
+    class_indices = {cls: idx for idx, cls in enumerate(lb.classes_)}
 
-        mecab_item = []
-        mecab_item.append(line_array[0])
-        mecab_item.extend(line_array[1].split(','))
-        mecab_parsed.append(mecab_item)
+    return classification_report(
+        y_true_combined,
+        y_pred_combined,
+        labels = [class_indices[cls] for cls in tagset],
+        target_names = tagset,
+    )
 
-    tagger = pycrfsuite.Tagger()
-    tagger.open('model.crfsuite')
-    tagged = tagger.tag(sent2features(mecab_parsed))
+y_pred = [tagger.tag(xseq) for xseq in X_test]
 
-    for i in range(len(mecab_parsed)):
-        mecab_parsed[i].append(tagged[i])
-
-    for mecab_item in mecab_parsed:
-        out.write('\t'.join(mecab_item) + '\n')
-
-    out.write('\n')
-
-out.close()
+print(bio_classification_report(y_test, y_pred))
