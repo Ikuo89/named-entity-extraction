@@ -3,7 +3,7 @@ import pycrfsuite
 import sklearn
 from sklearn.metrics import classification_report
 from sklearn.preprocessing import LabelBinarizer
-
+from pprint import pprint
 import codecs
 
 class CorpusReader(object):
