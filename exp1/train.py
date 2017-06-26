@@ -43,6 +43,9 @@ def is_kanji_time(ch):
 def is_kanji_date(ch):
     return ch in "月日"
 
+def is_kanji_location(ch):
+    return ch in "館駅場所区市町村港室"
+
 def get_character_type(ch):
     if ch.isspace():
         return 'ZSPACE'
@@ -58,6 +61,8 @@ def get_character_type(ch):
         return 'KANTIME'
     elif is_kanji_date(ch):
         return 'KANDATE'
+    elif is_kanji_location(ch):
+        return 'KANLOC'
     else:
         return 'OTHER'
 
