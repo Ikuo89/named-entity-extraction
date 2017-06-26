@@ -123,20 +123,25 @@ def sent2tokens(sent):
 
 
 
-m = MeCab.Tagger("-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd/")
-f = open('line.csv', 'r')
-out = open('tweet_tagged.txt', 'w')
+m = MeCab.Tagger("-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd/ -u /usr/local/lib/mecab/dic/custom.dic")
+f = open('sample.csv', 'r')
+out = open('tagged.txt', 'w')
 dataReader = csv.reader(f)
 for row in dataReader:
     text = row[0]
     text = mojimoji.zen_to_han(text, kana=False)
     text = mojimoji.han_to_zen(text, digit=False, ascii=False)
     text = re.sub(r'[-~〰−―]', '〜', text)
-    text = re.sub(r'[「【『［〈《]', '[', text)
-    text = re.sub(r'[」】』］〉》]', ']', text)
-    text = re.sub(r'[（]', '(', text)
-    text = re.sub(r'[）]', ')', text)
+    text = re.sub(r'[「【『［〈《\[]', ' [ ', text)
+    text = re.sub(r'[」】』］〉》\]]', ' ] ', text)
+    text = re.sub(r'[（]', ' ( ', text)
+    text = re.sub(r'[）]', ' ) ', text)
     text = re.sub(r'[／]', '/', text)
+    text = re.sub(r'[!?]', '', text)
+    text = re.sub(r'[^0-9](?P<hour>\d{2})(?P<minutes>\d{2})[ 　]*[-〜~]', '\g<hour>:\g<minutes>〜', text)
+    text = re.sub(r'(?P<hour>\d{2}):(?P<minutes>\d{2})', ' \g<hour>:\g<minutes> ', text)
+    text = re.sub(r'(?P<year>\d{2,4})[\/.-](?P<month>\d{1,2})[\/.-](?P<day>\d{1,2})', ' \g<year>年 \g<month>月 \g<day>日 ', text)
+    text = re.sub(r'(?P<month>\d{1,2})[\/.-](?P<day>\d{1,2})', ' \g<month>月 \g<day>日 ', text)
     parsed = m.parse(text)
 
     mecab_parsed = []
