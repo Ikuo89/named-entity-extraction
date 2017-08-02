@@ -27,14 +27,20 @@ begin
 
     INSERT IGNORE INTO amusements (title, sub_type)
       select
-        page.page_title,
+        REPLACE(page.page_title, '_', ' ') as title,
         cl.cl_type
       from
         categorylinks as cl
         left join page on page.page_id = cl.cl_from
       where
-        cl.cl_to = target_cat;
-    UPDATE amusements SET last_checked_at = now() WHERE title = target_cat;
+        cl.cl_to = target_cat
+        AND page.page_title NOT REGEXP '^[0-9]+年'
+        AND page.page_title NOT REGEXP '^各年'
+        AND page.page_title NOT REGEXP '^PJ:'
+        AND page.page_title NOT REGEXP 'の登場人物'
+        AND page.page_title NOT REGEXP '一覧'
+        AND page.page_title NOT REGEXP '月.+日';
+    UPDATE amusements SET last_checked_at = now() WHERE title = target_cat AND sub_type = 'subcat';
   END LOOP;
 end
 //
